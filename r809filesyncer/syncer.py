@@ -3,8 +3,6 @@ import os
 import subprocess
 import yaml
 
-'rsync -i -avzh --dry-run'
-
 REPOSITORY_METADATA_FILENAME = "./.r809filesyncer/repository.yaml"
 REPOSITORY_METADATA_DIRNAME = os.path.dirname(REPOSITORY_METADATA_FILENAME)
 
@@ -38,16 +36,26 @@ def load_repository_metadata():
     with open(REPOSITORY_METADATA_FILENAME, "r") as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
+def save_repository_metadata(repository_metadata):
+    with open(REPOSITORY_METADATA_FILENAME, "w") as f:
+        yaml.dump(repository_metadata, f)
+
+def get_remotes():
+    repository_metadata = load_repository_metadata()
+    return repository_metadata["remotes"]
+
+def gen_rsync_command(args):
+    command = ["rsync", "-i", "-avzh"]
+    if args.checksum:
+        command.append("--checksum")
+    return command
+
 def push(args):
     check_init()
-    repository_metadata = load_repository_metadata()
-    remotes = repository_metadata["remotes"]
+    remotes = get_remotes()
     print("[.] Trying to push to {} remotes.".format(len(remotes)))
     for remote in remotes:
-        command = ["rsync", "-i", "-avzh"]
-        if args.checksum:
-            command.append("--checksum")
-        command += ['--dry-run', '.', remote["remote_path"]]
+        command = gen_rsync_command(args) + ['--dry-run', '.', remote["remote_path"]]
         print("[.] dry-run push to {}.".format(remote["name"]))
         print(command)
         subprocess.run(command, check=True)
@@ -61,14 +69,10 @@ def push(args):
 
 def pull(args):
     check_init()
-    repository_metadata = load_repository_metadata()
-    remotes = repository_metadata["remotes"]
+    remotes = get_remotes()
     print("[.] Trying to pull from {} remotes.".format(len(remotes)))
     for remote in remotes:
-        command = ["rsync", "-i", "-avzh"]
-        if args.checksum:
-            command.append("--checksum")
-        command += ['--dry-run', remote["remote_path"], '.']
+        command = gen_rsync_command(args) + ['--dry-run', remote["remote_path"], '.']
         print("[.] dry-run pull from {}.".format(remote["name"]))
         print(command)
         subprocess.run(command, check=True)
@@ -95,9 +99,16 @@ def remote_add(command, name, remote_path):
         "remote_path": remote_path,
     })
 
-    with open(REPOSITORY_METADATA_FILENAME, "w") as f:
-        yaml.dump(repository_metadata, f)
+    save_repository_metadata(repository_metadata)
     print("[+] Added remote {} at {}.".format(name, remote_path))
+
+def rm(args):
+    check_init()
+    raise NotImplementedError()
+
+def mv(args):
+    check_init()
+    raise NotImplementedError()
 
 def main():
     check_dependencies()
@@ -133,6 +144,15 @@ def main():
     remote_add_parser.add_argument("name")
     remote_add_parser.add_argument("remote_path")
     remote_add_parser.set_defaults(func=lambda args: remote_add("add", args.name, args.remote_path))
+
+    rm_parser = remote_subparsers.add_parser("rm")
+    rm_parser.add_argument("path")
+    rm_parser.set_defaults(func=rm)
+
+    mv_parser = remote_subparsers.add_parser("mv")
+    mv_parser.add_argument("src")
+    mv_parser.add_argument("dst")
+    mv_parser.set_defaults(func=mv)
 
     args = argparser.parse_args()
     args.func(args)
