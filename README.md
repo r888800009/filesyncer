@@ -22,7 +22,10 @@ syncer remote add <name> <0.0.0.0:/path/to/dir>
 
 ### checksum
 using `--checksum` to compare file content, instead of rsync default behavior, 
-`--checksum` possibly to figure out (not fix) if file is broken (like transfered failed, or disk bit flip etc.)
+`--checksum` possibly to figure out (not fix, and possibly to cause data loss,
+ you should make sure push file is correct)
+if file is broken (like transfered failed, or disk bit flip etc.)
+
 ```
 syncer pull --checksum
 syncer push --checksum
